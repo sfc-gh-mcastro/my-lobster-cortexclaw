@@ -52,10 +52,16 @@ async def run_agent(
     prompt: str,
     chat_jid: str,
     on_output: OnAgentOutput | None = None,
-) -> str:
+    continue_conversation: bool = False,
+) -> AgentOutput:
     """Run a Cortex Code agent for the given group and prompt.
 
-    Returns ``"success"`` or ``"error"``.
+    When *continue_conversation* is ``True`` the SDK passes ``--continue``
+    to the CLI which resumes the last session in the group's cwd.
+
+    Returns an :class:`AgentOutput` containing the status, result text,
+    and — crucially — the ``session_id`` reported by the CLI so the
+    orchestrator can persist it for future continuations.
     """
     group_dir = GROUPS_DIR / group.folder
     group_dir.mkdir(parents=True, exist_ok=True)
@@ -75,11 +81,13 @@ async def run_agent(
         connection=CORTEX_CONNECTION or None,
         can_use_tool=_auto_approve,
         cli_path=CORTEX_CLI_PATH,
+        continue_conversation=continue_conversation,
     )
 
     collected_text: list[str] = []
     status = "success"
     error_msg: str | None = None
+    session_id: str | None = None
 
     try:
         async for message in query(prompt=full_prompt, options=options):
@@ -89,20 +97,21 @@ async def run_agent(
                         collected_text.append(block.text)
 
             elif isinstance(message, ResultMessage):
+                session_id = message.session_id
                 if message.subtype == "error":
                     status = "error"
                     error_msg = "Agent returned error result"
 
                 # Emit final output
                 result_text = "".join(collected_text).strip() or None
+                output = AgentOutput(
+                    result=result_text,
+                    status=status,
+                    error=error_msg,
+                    session_id=session_id,
+                )
                 if on_output:
-                    await on_output(
-                        AgentOutput(
-                            result=result_text,
-                            status=status,
-                            error=error_msg,
-                        )
-                    )
+                    await on_output(output)
 
             elif isinstance(message, SystemMessage):
                 # Log system messages for debugging
@@ -113,9 +122,14 @@ async def run_agent(
         logger.error("Agent run failed for group %s: %s", group.folder, e)
         status = "error"
         error_msg = str(e)
+        output = AgentOutput(result=None, status="error", error=error_msg)
         if on_output:
-            await on_output(
-                AgentOutput(result=None, status="error", error=error_msg)
-            )
+            await on_output(output)
+        return output
 
-    return status
+    return AgentOutput(
+        result="".join(collected_text).strip() or None,
+        status=status,
+        error=error_msg,
+        session_id=session_id,
+    )

@@ -134,7 +134,7 @@ def _on_chat_metadata(
 
 async def _process_group_messages(chat_jid: str) -> bool:
     """Process all pending messages for a group. Returns True on success."""
-    global _last_agent_timestamp
+    global _last_agent_timestamp, _sessions
 
     group = _registered_groups.get(chat_jid)
     if not group:
@@ -162,14 +162,25 @@ async def _process_group_messages(chat_jid: str) -> bool:
 
     prompt = format_messages(missed_messages, TIMEZONE)
 
+    # Session continuity: resume prior conversation if the group has a
+    # recorded session.  The SDK's ``--continue`` flag resumes the last
+    # session in the cwd, so each group's dedicated directory acts as the
+    # session anchor.
+    has_prior_session = group.folder in _sessions
+    if has_prior_session:
+        logger.info(
+            "Continuing session %s for group %s",
+            _sessions[group.folder], group.name,
+        )
+
     # Advance cursor (save old for rollback on error)
     previous_cursor = _last_agent_timestamp.get(chat_jid, "")
     _last_agent_timestamp[chat_jid] = missed_messages[-1].timestamp
     await _save_state()
 
     logger.info(
-        "Processing %d messages for group %s",
-        len(missed_messages), group.name,
+        "Processing %d messages for group %s (continue=%s)",
+        len(missed_messages), group.name, has_prior_session,
     )
 
     await channel.set_typing(chat_jid, True)
@@ -200,11 +211,24 @@ async def _process_group_messages(chat_jid: str) -> bool:
         if output.status == "error":
             had_error = True
 
-    status = await run_agent(group, prompt, chat_jid, _on_output)
+    agent_result = await run_agent(
+        group, prompt, chat_jid, _on_output,
+        continue_conversation=has_prior_session,
+    )
 
     await channel.set_typing(chat_jid, False)
 
-    if status == "error" or had_error:
+    # Persist session_id returned by the agent so the next invocation can
+    # resume it via ``--continue``.
+    if agent_result.session_id:
+        _sessions[group.folder] = agent_result.session_id
+        await db.set_session(group.folder, agent_result.session_id)
+        logger.info(
+            "Saved session %s for group %s",
+            agent_result.session_id, group.name,
+        )
+
+    if agent_result.status == "error" or had_error:
         if output_sent:
             logger.warning(
                 "Agent error for %s after output sent, skipping rollback",
@@ -302,12 +326,20 @@ async def main() -> None:
     )
     ipc_task = asyncio.create_task(start_ipc_watcher(ipc_deps))
 
+    # Helper for task scheduler to update sessions
+    async def _update_session(group_folder: str, session_id: str) -> None:
+        global _sessions
+        _sessions[group_folder] = session_id
+        await db.set_session(group_folder, session_id)
+
     # Start task scheduler
     scheduler_task = asyncio.create_task(
         start_scheduler_loop(
             registered_groups=lambda: _registered_groups,
+            sessions=lambda: _sessions,
             send_message=_send_message,
             queue=_queue,
+            on_session_update=_update_session,
         )
     )
 

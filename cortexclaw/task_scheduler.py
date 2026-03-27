@@ -74,10 +74,18 @@ def compute_next_run(task: ScheduledTask) -> str | None:
 async def _run_task(
     task: ScheduledTask,
     registered_groups: dict[str, RegisteredGroup],
+    sessions: dict[str, str],
     send_message: Callable[[str, str], Coroutine[None, None, None]],
     queue: GroupQueue,
+    on_session_update: Callable[[str, str], Coroutine[None, None, None]] | None = None,
 ) -> None:
-    """Execute a single scheduled task."""
+    """Execute a single scheduled task.
+
+    *sessions* maps group_folder → session_id.  When ``task.context_mode``
+    is ``"group"`` the agent continues the existing group session so it has
+    access to prior conversation context.  When ``"isolated"`` (default)
+    a fresh session is used.
+    """
     start_ms = time.monotonic_ns() // 1_000_000
 
     group = next(
@@ -97,7 +105,16 @@ async def _run_task(
         )
         return
 
-    logger.info("Running scheduled task %s for group %s", task.id, task.group_folder)
+    # Determine whether to continue the group's session
+    continue_conversation = (
+        task.context_mode == "group"
+        and task.group_folder in sessions
+    )
+
+    logger.info(
+        "Running scheduled task %s for group %s (context_mode=%s, continue=%s)",
+        task.id, task.group_folder, task.context_mode, continue_conversation,
+    )
 
     result_text: str | None = None
     error_text: str | None = None
@@ -113,7 +130,17 @@ async def _run_task(
             error_text = output.error or "Unknown error"
 
     try:
-        await run_agent(group, task.prompt, task.chat_jid, on_output)
+        agent_result = await run_agent(
+            group, task.prompt, task.chat_jid, on_output,
+            continue_conversation=continue_conversation,
+        )
+        # Persist session if using group context mode
+        if (
+            task.context_mode == "group"
+            and agent_result.session_id
+            and on_session_update
+        ):
+            await on_session_update(task.group_folder, agent_result.session_id)
     except Exception as e:
         error_text = str(e)
         logger.error("Task %s failed: %s", task.id, e)
@@ -150,8 +177,10 @@ _scheduler_running = False
 
 async def start_scheduler_loop(
     registered_groups: Callable[[], dict[str, RegisteredGroup]],
+    sessions: Callable[[], dict[str, str]],
     send_message: Callable[[str, str], Coroutine[None, None, None]],
     queue: GroupQueue,
+    on_session_update: Callable[[str, str], Coroutine[None, None, None]] | None = None,
 ) -> None:
     """Poll for due tasks and enqueue them via the GroupQueue."""
     global _scheduler_running
@@ -173,9 +202,10 @@ async def start_scheduler_loop(
                     continue
 
                 groups = registered_groups()
+                sess = sessions()
 
-                async def _task_fn(t=current, g=groups):  # type: ignore[no-untyped-def]
-                    await _run_task(t, g, send_message, queue)
+                async def _task_fn(t=current, g=groups, s=sess):  # type: ignore[no-untyped-def]
+                    await _run_task(t, g, s, send_message, queue, on_session_update)
 
                 queue.enqueue_task(current.chat_jid, current.id, _task_fn)
 
