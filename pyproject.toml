@@ -1,0 +1,19 @@
+[project]
+name = "cortexclaw"
+version = "0.1.0"
+description = "NanoClaw-inspired orchestrator on top of Cortex Code Agent SDK"
+requires-python = ">=3.10"
+dependencies = [
+    "cortex_code_agent_sdk",
+    "aiosqlite>=0.20.0",
+    "slack_bolt>=1.18.0",
+    "croniter>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+cortexclaw = "cortexclaw.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
