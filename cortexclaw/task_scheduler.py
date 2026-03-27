@@ -105,15 +105,17 @@ async def _run_task(
         )
         return
 
-    # Determine whether to continue the group's session
-    continue_conversation = (
-        task.context_mode == "group"
-        and task.group_folder in sessions
+    # Determine session to resume for group context mode
+    resume_session_id = (
+        sessions.get(task.group_folder)
+        if task.context_mode == "group"
+        else None
     )
 
     logger.info(
-        "Running scheduled task %s for group %s (context_mode=%s, continue=%s)",
-        task.id, task.group_folder, task.context_mode, continue_conversation,
+        "Running scheduled task %s for group %s (context_mode=%s, resume=%s)",
+        task.id, task.group_folder, task.context_mode,
+        resume_session_id or "new",
     )
 
     result_text: str | None = None
@@ -132,7 +134,7 @@ async def _run_task(
     try:
         agent_result = await run_agent(
             group, task.prompt, task.chat_jid, on_output,
-            continue_conversation=continue_conversation,
+            resume_session_id=resume_session_id,
         )
         # Persist session if using group context mode
         if (

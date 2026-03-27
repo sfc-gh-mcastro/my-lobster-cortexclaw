@@ -52,16 +52,19 @@ async def run_agent(
     prompt: str,
     chat_jid: str,
     on_output: OnAgentOutput | None = None,
-    continue_conversation: bool = False,
+    resume_session_id: str | None = None,
 ) -> AgentOutput:
     """Run a Cortex Code agent for the given group and prompt.
 
-    When *continue_conversation* is ``True`` the SDK passes ``--continue``
-    to the CLI which resumes the last session in the group's cwd.
+    When *resume_session_id* is provided the SDK passes
+    ``--resume <session_id>`` to the CLI, which explicitly resumes that
+    exact session.  This is more reliable than ``--continue`` (which
+    resumes the *last* session in the cwd and can pick up the wrong one
+    if the directory was used by other sessions).
 
     Returns an :class:`AgentOutput` containing the status, result text,
-    and — crucially — the ``session_id`` reported by the CLI so the
-    orchestrator can persist it for future continuations.
+    and the ``session_id`` reported by the CLI so the orchestrator can
+    persist it for future continuations.
     """
     group_dir = GROUPS_DIR / group.folder
     group_dir.mkdir(parents=True, exist_ok=True)
@@ -81,7 +84,7 @@ async def run_agent(
         connection=CORTEX_CONNECTION or None,
         can_use_tool=_auto_approve,
         cli_path=CORTEX_CLI_PATH,
-        continue_conversation=continue_conversation,
+        resume=resume_session_id or None,
     )
 
     collected_text: list[str] = []

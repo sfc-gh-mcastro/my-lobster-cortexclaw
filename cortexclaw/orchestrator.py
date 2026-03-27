@@ -162,15 +162,14 @@ async def _process_group_messages(chat_jid: str) -> bool:
 
     prompt = format_messages(missed_messages, TIMEZONE)
 
-    # Session continuity: resume prior conversation if the group has a
-    # recorded session.  The SDK's ``--continue`` flag resumes the last
-    # session in the cwd, so each group's dedicated directory acts as the
-    # session anchor.
-    has_prior_session = group.folder in _sessions
-    if has_prior_session:
+    # Session continuity: explicitly resume the prior session by ID.
+    # Using --resume <id> is more reliable than --continue (which resumes
+    # the *last* session in the cwd and can pick up the wrong one).
+    prior_session_id = _sessions.get(group.folder)
+    if prior_session_id:
         logger.info(
-            "Continuing session %s for group %s",
-            _sessions[group.folder], group.name,
+            "Resuming session %s for group %s",
+            prior_session_id, group.name,
         )
 
     # Advance cursor (save old for rollback on error)
@@ -179,8 +178,8 @@ async def _process_group_messages(chat_jid: str) -> bool:
     await _save_state()
 
     logger.info(
-        "Processing %d messages for group %s (continue=%s)",
-        len(missed_messages), group.name, has_prior_session,
+        "Processing %d messages for group %s (resume=%s)",
+        len(missed_messages), group.name, prior_session_id or "new",
     )
 
     await channel.set_typing(chat_jid, True)
@@ -213,13 +212,13 @@ async def _process_group_messages(chat_jid: str) -> bool:
 
     agent_result = await run_agent(
         group, prompt, chat_jid, _on_output,
-        continue_conversation=has_prior_session,
+        resume_session_id=prior_session_id,
     )
 
     await channel.set_typing(chat_jid, False)
 
     # Persist session_id returned by the agent so the next invocation can
-    # resume it via ``--continue``.
+    # resume it via ``--resume <session_id>``.
     if agent_result.session_id:
         _sessions[group.folder] = agent_result.session_id
         await db.set_session(group.folder, agent_result.session_id)
