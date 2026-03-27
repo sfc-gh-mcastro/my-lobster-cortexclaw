@@ -6,13 +6,12 @@ Ported from NanoClaw's src/db.ts — uses aiosqlite for async access.
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
 import aiosqlite
 
-from .config import ASSISTANT_NAME, STORE_DIR
+from .config import STORE_DIR
 from .types import NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog
 
 _db: Optional[aiosqlite.Connection] = None
@@ -273,11 +272,7 @@ async def get_all_registered_groups() -> dict[str, RegisteredGroup]:
 async def set_registered_group(jid: str, group: RegisteredGroup) -> None:
     db = _get_db()
     config_json = (
-        json.dumps(
-            {"timeout": group.container_config.timeout}
-            if group.container_config
-            else {}
-        )
+        json.dumps({"timeout": group.container_config.timeout} if group.container_config else {})
         if group.container_config
         else None
     )
@@ -327,9 +322,7 @@ async def set_session(group_folder: str, session_id: str) -> None:
 
 async def get_router_state(key: str) -> str | None:
     db = _get_db()
-    cursor = await db.execute(
-        "SELECT value FROM router_state WHERE key = ?", (key,)
-    )
+    cursor = await db.execute("SELECT value FROM router_state WHERE key = ?", (key,))
     row = await cursor.fetchone()
     return row["value"] if row else None
 
@@ -401,9 +394,7 @@ async def get_due_tasks() -> list[ScheduledTask]:
 
 async def get_task_by_id(task_id: str) -> ScheduledTask | None:
     db = _get_db()
-    cursor = await db.execute(
-        "SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)
-    )
+    cursor = await db.execute("SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,))
     row = await cursor.fetchone()
     if not row:
         return None
@@ -452,15 +443,11 @@ async def update_task(task_id: str, updates: dict[str, Any]) -> None:
     db = _get_db()
     sets = ", ".join(f"{k} = ?" for k in updates)
     vals = list(updates.values()) + [task_id]
-    await db.execute(
-        f"UPDATE scheduled_tasks SET {sets} WHERE id = ?", vals
-    )
+    await db.execute(f"UPDATE scheduled_tasks SET {sets} WHERE id = ?", vals)
     await db.commit()
 
 
-async def update_task_after_run(
-    task_id: str, next_run: str | None, result_summary: str
-) -> None:
+async def update_task_after_run(task_id: str, next_run: str | None, result_summary: str) -> None:
     db = _get_db()
     from datetime import datetime, timezone
 

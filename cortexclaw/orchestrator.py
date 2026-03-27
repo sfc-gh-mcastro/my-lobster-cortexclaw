@@ -10,9 +10,7 @@ import asyncio
 import json
 import logging
 import signal
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 from . import db
 from .agent_runner import run_agent
@@ -71,9 +69,7 @@ async def _load_state() -> None:
 
 async def _save_state() -> None:
     await db.set_router_state("last_timestamp", _last_timestamp)
-    await db.set_router_state(
-        "last_agent_timestamp", json.dumps(_last_agent_timestamp)
-    )
+    await db.set_router_state("last_agent_timestamp", json.dumps(_last_agent_timestamp))
 
 
 # ---------------------------------------------------------------------------
@@ -122,9 +118,7 @@ def _on_chat_metadata(
     is_group: bool | None,
 ) -> None:
     """Called by channels for chat metadata discovery."""
-    asyncio.create_task(
-        db.store_chat_metadata(chat_jid, timestamp, name, channel, is_group)
-    )
+    asyncio.create_task(db.store_chat_metadata(chat_jid, timestamp, name, channel, is_group))
 
 
 # ---------------------------------------------------------------------------
@@ -146,9 +140,7 @@ async def _process_group_messages(chat_jid: str) -> bool:
         return True
 
     since_timestamp = _last_agent_timestamp.get(chat_jid, "")
-    missed_messages = await db.get_messages_since(
-        chat_jid, since_timestamp, ASSISTANT_NAME
-    )
+    missed_messages = await db.get_messages_since(chat_jid, since_timestamp, ASSISTANT_NAME)
 
     if not missed_messages:
         return True
@@ -169,7 +161,8 @@ async def _process_group_messages(chat_jid: str) -> bool:
     if prior_session_id:
         logger.info(
             "Resuming session %s for group %s",
-            prior_session_id, group.name,
+            prior_session_id,
+            group.name,
         )
 
     # Advance cursor (save old for rollback on error)
@@ -179,7 +172,9 @@ async def _process_group_messages(chat_jid: str) -> bool:
 
     logger.info(
         "Processing %d messages for group %s (resume=%s)",
-        len(missed_messages), group.name, prior_session_id or "new",
+        len(missed_messages),
+        group.name,
+        prior_session_id or "new",
     )
 
     await channel.set_typing(chat_jid, True)
@@ -211,7 +206,10 @@ async def _process_group_messages(chat_jid: str) -> bool:
             had_error = True
 
     agent_result = await run_agent(
-        group, prompt, chat_jid, _on_output,
+        group,
+        prompt,
+        chat_jid,
+        _on_output,
         resume_session_id=prior_session_id,
     )
 
@@ -224,7 +222,8 @@ async def _process_group_messages(chat_jid: str) -> bool:
         await db.set_session(group.folder, agent_result.session_id)
         logger.info(
             "Saved session %s for group %s",
-            agent_result.session_id, group.name,
+            agent_result.session_id,
+            group.name,
         )
 
     if agent_result.status == "error" or had_error:
@@ -323,7 +322,7 @@ async def main() -> None:
         register_group=_register_group,
         on_tasks_changed=lambda: None,
     )
-    ipc_task = asyncio.create_task(start_ipc_watcher(ipc_deps))
+    _ipc_task = asyncio.create_task(start_ipc_watcher(ipc_deps))  # noqa: F841
 
     # Helper for task scheduler to update sessions
     async def _update_session(group_folder: str, session_id: str) -> None:
@@ -332,7 +331,7 @@ async def main() -> None:
         await db.set_session(group_folder, session_id)
 
     # Start task scheduler
-    scheduler_task = asyncio.create_task(
+    _scheduler_task = asyncio.create_task(  # noqa: F841
         start_scheduler_loop(
             registered_groups=lambda: _registered_groups,
             sessions=lambda: _sessions,
@@ -359,8 +358,9 @@ async def main() -> None:
             # Windows doesn't support add_signal_handler
             pass
 
-    logger.info("CortexClaw running — %d channels, %d groups",
-                len(_channels), len(_registered_groups))
+    logger.info(
+        "CortexClaw running — %d channels, %d groups", len(_channels), len(_registered_groups)
+    )
 
     # Main poll loop
     try:

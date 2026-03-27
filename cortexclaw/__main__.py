@@ -1,7 +1,6 @@
 """Entry point for ``python -m cortexclaw``."""
 
 import asyncio
-import sys
 
 
 def main() -> None:

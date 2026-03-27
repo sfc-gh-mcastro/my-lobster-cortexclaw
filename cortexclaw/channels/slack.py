@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import uuid4
 
 from ..config import SLACK_APP_TOKEN, SLACK_BOT_TOKEN
@@ -34,8 +33,8 @@ class SlackChannel(Channel):
         return "slack"
 
     async def connect(self) -> None:
-        from slack_bolt.async_app import AsyncApp
         from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
+        from slack_bolt.async_app import AsyncApp
 
         self._app = AsyncApp(token=SLACK_BOT_TOKEN)
         app: AsyncApp = self._app  # type: ignore[assignment]
@@ -56,9 +55,11 @@ class SlackChannel(Channel):
             channel_id = event.get("channel", "")
             jid = f"slack:{channel_id}"
             ts = event.get("ts", "")
-            timestamp = datetime.fromtimestamp(
-                float(ts), tz=timezone.utc
-            ).isoformat() if ts else datetime.now(timezone.utc).isoformat()
+            timestamp = (
+                datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat()
+                if ts
+                else datetime.now(timezone.utc).isoformat()
+            )
 
             user_id = event.get("user", "unknown")
             text = event.get("text", "")
@@ -71,9 +72,7 @@ class SlackChannel(Channel):
                 content=text,
                 timestamp=timestamp,
             )
-            self._opts.on_chat_metadata(
-                jid, timestamp, None, "slack", True
-            )
+            self._opts.on_chat_metadata(jid, timestamp, None, "slack", True)
             self._opts.on_message(jid, msg)
 
         handler = AsyncSocketModeHandler(app, SLACK_APP_TOKEN)
@@ -110,9 +109,7 @@ class SlackChannel(Channel):
             return
         app = self._app  # type: ignore
         try:
-            result = await app.client.conversations_list(
-                types="public_channel,private_channel"
-            )
+            result = await app.client.conversations_list(types="public_channel,private_channel")
             for channel in result.get("channels", []):
                 jid = f"slack:{channel['id']}"
                 self._opts.on_chat_metadata(

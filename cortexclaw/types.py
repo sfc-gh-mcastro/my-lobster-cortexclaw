@@ -9,8 +9,7 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Optional
-
+from typing import Callable, Coroutine, Optional
 
 # ---------------------------------------------------------------------------
 # Container / mount configuration
@@ -119,9 +118,7 @@ class AgentOutput:
 
 # Callback types
 OnInboundMessage = Callable[[str, "NewMessage"], None]
-OnChatMetadata = Callable[
-    [str, str, Optional[str], Optional[str], Optional[bool]], None
-]
+OnChatMetadata = Callable[[str, str, Optional[str], Optional[str], Optional[bool]], None]
 
 
 OnRegisterGroup = Callable[[str, "RegisteredGroup"], Coroutine[None, None, None]]

@@ -153,6 +153,47 @@ Agents can communicate back to the orchestrator by writing JSON files to `data/i
 
 Place a `CLAUDE.md` file in `groups/{folder}/` to give the agent custom instructions for that group. The agent runner prepends it to every prompt.
 
+## Development
+
+### Setup
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+```
+
+### Running tests
+
+```bash
+# Full test suite with coverage
+pytest --cov=cortexclaw --cov-report=term-missing
+
+# Single test file
+pytest tests/test_router.py -v
+```
+
+### Linting & formatting
+
+```bash
+# Check formatting
+ruff format --check .
+
+# Auto-format
+ruff format .
+
+# Lint
+ruff check .
+
+# Lint with auto-fix
+ruff check --fix .
+```
+
+### CI/CD
+
+Pull requests run lint + tests automatically via GitHub Actions (`.github/workflows/ci.yml`). Tests run against Python 3.10, 3.11, and 3.12.
+
+Merges to `main` auto-bump the patch version and create a git tag (`.github/workflows/bump-version.yml`).
+
 ## Releases
 
 ### v0.0.1 — First working version

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,13 +27,9 @@ ASSISTANT_NAME: str = os.getenv("ASSISTANT_NAME", "CortexClaw")
 # ---------------------------------------------------------------------------
 
 POLL_INTERVAL: float = int(os.getenv("POLL_INTERVAL", "2000")) / 1000.0  # seconds
-SCHEDULER_POLL_INTERVAL: float = (
-    int(os.getenv("SCHEDULER_POLL_INTERVAL", "60000")) / 1000.0
-)
+SCHEDULER_POLL_INTERVAL: float = int(os.getenv("SCHEDULER_POLL_INTERVAL", "60000")) / 1000.0
 IDLE_TIMEOUT: int = int(os.getenv("IDLE_TIMEOUT", "1800000"))  # 30 min
-MAX_CONCURRENT_AGENTS: int = max(
-    1, int(os.getenv("MAX_CONCURRENT_AGENTS", "5"))
-)
+MAX_CONCURRENT_AGENTS: int = max(1, int(os.getenv("MAX_CONCURRENT_AGENTS", "5")))
 IPC_POLL_INTERVAL: float = int(os.getenv("IPC_POLL_INTERVAL", "1000")) / 1000.0
 
 # ---------------------------------------------------------------------------

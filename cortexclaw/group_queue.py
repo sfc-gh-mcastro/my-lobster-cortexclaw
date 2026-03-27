@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Coroutine, Optional
+from typing import Callable, Coroutine
 
 from .config import MAX_CONCURRENT_AGENTS
 
@@ -131,7 +131,9 @@ class GroupQueue:
 
         logger.debug(
             "Starting agent for %s (%s), active=%d",
-            group_jid, reason, self._active_count,
+            group_jid,
+            reason,
+            self._active_count,
         )
 
         try:
@@ -160,7 +162,9 @@ class GroupQueue:
 
         logger.debug(
             "Running task %s for %s, active=%d",
-            task.id, group_jid, self._active_count,
+            task.id,
+            group_jid,
+            self._active_count,
         )
 
         try:
@@ -192,7 +196,9 @@ class GroupQueue:
         delay = BASE_RETRY_SECONDS * (2 ** (state.retry_count - 1))
         logger.info(
             "Scheduling retry %d for %s in %.1fs",
-            state.retry_count, group_jid, delay,
+            state.retry_count,
+            group_jid,
+            delay,
         )
 
         async def _retry() -> None:
@@ -227,10 +233,7 @@ class GroupQueue:
         self._drain_waiting()
 
     def _drain_waiting(self) -> None:
-        while (
-            self._waiting_groups
-            and self._active_count < MAX_CONCURRENT_AGENTS
-        ):
+        while self._waiting_groups and self._active_count < MAX_CONCURRENT_AGENTS:
             next_jid = self._waiting_groups.pop(0)
             state = self._get_group(next_jid)
 

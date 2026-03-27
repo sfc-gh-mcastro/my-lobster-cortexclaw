@@ -15,7 +15,7 @@ from croniter import croniter
 
 from . import db
 from .agent_runner import run_agent
-from .config import ASSISTANT_NAME, SCHEDULER_POLL_INTERVAL, TIMEZONE
+from .config import SCHEDULER_POLL_INTERVAL
 from .group_queue import GroupQueue
 from .router import format_outbound
 from .types import RegisteredGroup, ScheduledTask, TaskRunLog
@@ -106,15 +106,13 @@ async def _run_task(
         return
 
     # Determine session to resume for group context mode
-    resume_session_id = (
-        sessions.get(task.group_folder)
-        if task.context_mode == "group"
-        else None
-    )
+    resume_session_id = sessions.get(task.group_folder) if task.context_mode == "group" else None
 
     logger.info(
         "Running scheduled task %s for group %s (context_mode=%s, resume=%s)",
-        task.id, task.group_folder, task.context_mode,
+        task.id,
+        task.group_folder,
+        task.context_mode,
         resume_session_id or "new",
     )
 
@@ -133,15 +131,14 @@ async def _run_task(
 
     try:
         agent_result = await run_agent(
-            group, task.prompt, task.chat_jid, on_output,
+            group,
+            task.prompt,
+            task.chat_jid,
+            on_output,
             resume_session_id=resume_session_id,
         )
         # Persist session if using group context mode
-        if (
-            task.context_mode == "group"
-            and agent_result.session_id
-            and on_session_update
-        ):
+        if task.context_mode == "group" and agent_result.session_id and on_session_update:
             await on_session_update(task.group_folder, agent_result.session_id)
     except Exception as e:
         error_text = str(e)

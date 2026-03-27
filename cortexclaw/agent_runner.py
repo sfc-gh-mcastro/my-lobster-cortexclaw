@@ -7,8 +7,7 @@ containers, we call the SDK's ``query()`` directly as a subprocess.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Callable, Coroutine, Optional
+from typing import Callable, Coroutine
 
 from cortex_code_agent_sdk import (
     AssistantMessage,
@@ -74,10 +73,7 @@ async def run_agent(
     full_prompt = prompt
     if claude_md.exists():
         instructions = claude_md.read_text()
-        full_prompt = (
-            f"<system-instructions>\n{instructions}\n</system-instructions>\n\n"
-            f"{prompt}"
-        )
+        full_prompt = f"<system-instructions>\n{instructions}\n</system-instructions>\n\n{prompt}"
 
     options = CortexCodeAgentOptions(
         cwd=str(group_dir),

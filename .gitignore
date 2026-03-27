@@ -13,5 +13,11 @@ store/
 data/
 groups/
 
+# Testing / linting
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
 # macOS
 .DS_Store

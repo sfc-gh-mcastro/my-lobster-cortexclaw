@@ -5,9 +5,7 @@ Ported from NanoClaw's src/channels/registry.ts.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from ..types import Channel, ChannelFactory, ChannelOpts
+from ..types import ChannelFactory
 
 _registry: dict[str, ChannelFactory] = {}
 

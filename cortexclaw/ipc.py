@@ -11,13 +11,12 @@ import json
 import logging
 import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Callable, Coroutine
 
 from croniter import croniter
 
 from . import db
-from .config import DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE
+from .config import DATA_DIR, IPC_POLL_INTERVAL
 from .types import RegisteredGroup, ScheduledTask
 
 logger = logging.getLogger(__name__)
@@ -75,7 +74,8 @@ async def _process_message_ipc(
     else:
         logger.warning(
             "Unauthorized IPC message from %s to %s blocked",
-            source_group, chat_jid,
+            source_group,
+            chat_jid,
         )
 
 
@@ -131,7 +131,7 @@ async def _process_task_ipc(
             except Exception:
                 return
 
-        task_id = data.get("taskId") or f"task-{int(datetime.now(timezone.utc).timestamp()*1000)}"
+        task_id = data.get("taskId") or f"task-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         context_mode = data.get("context_mode", "isolated")
         if context_mode not in ("group", "isolated"):
             context_mode = "isolated"

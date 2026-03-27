@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 from .types import Channel, NewMessage
@@ -17,12 +16,7 @@ def escape_xml(s: str) -> str:
     """Escape XML special characters."""
     if not s:
         return ""
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def format_messages(messages: list[NewMessage], timezone: str) -> str:
