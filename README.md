@@ -1,5 +1,7 @@
 # CortexClaw
 
+> **Status:** Early development — first working milestone tagged as [`v0.0.1`](https://github.com/sfc-gh-mcastro/my-lobster-cortexclaw/releases/tag/v0.0.1)
+
 A [NanoClaw](https://github.com/qwibitai/nanoclaw)-inspired orchestrator built on top of the [Cortex Code Agent SDK](https://docs.snowflake.com/en/user-guide/cortex-code). CortexClaw bridges messaging channels to Snowflake Cortex Code agents, providing a multi-channel AI assistant platform with persistent memory, scheduled tasks, and inter-agent communication.
 
 ## How it works
@@ -150,6 +152,36 @@ Agents can communicate back to the orchestrator by writing JSON files to `data/i
 ### Per-group instructions
 
 Place a `CLAUDE.md` file in `groups/{folder}/` to give the agent custom instructions for that group. The agent runner prepends it to every prompt.
+
+## Releases
+
+### v0.0.1 — First working version
+
+The initial milestone with the core orchestrator fully functional:
+
+- Multi-channel messaging (Slack + interactive CLI)
+- Cortex Code agent dispatch via the SDK (subprocess)
+- SQLite persistence for messages, groups, sessions, and scheduled tasks
+- Per-group concurrency control with global limit and retry
+- Session continuity — agents resume prior conversations within a group via `--resume <session_id>`
+- Cron / interval / one-shot task scheduler with `context_mode` support (`group` or `isolated`)
+- Filesystem-based IPC for inter-agent communication
+- Self-registering channel factory pattern (easy to add new channels)
+
+### Reverting to a tagged version
+
+To check out a specific release:
+
+```bash
+# List available tags
+git tag -l
+
+# Check out v0.0.1
+git checkout v0.0.1
+
+# Or create a branch from the tag to work on it
+git checkout -b my-branch v0.0.1
+```
 
 ## Acknowledgments
 
