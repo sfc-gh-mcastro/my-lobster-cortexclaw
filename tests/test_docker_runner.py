@@ -309,8 +309,9 @@ class TestCreateDockerWrapper:
             patch("cortexclaw.docker_runner.GROUPS_DIR", groups_dir),
             patch("cortexclaw.docker_runner.DATA_DIR", data_dir),
             patch("cortexclaw.docker_runner._HOST_CONNECTIONS_TOML", connections_toml),
+            patch("cortexclaw.docker_runner.DOCKER_CONNECTION", "my-snowflake-conn"),
         ):
-            wrapper = create_docker_wrapper(group)
+            wrapper = create_docker_wrapper(group, connection_name="my-snowflake-conn")
         assert wrapper.exists()
         assert wrapper.stat().st_mode & stat.S_IEXEC
 
@@ -322,8 +323,9 @@ class TestCreateDockerWrapper:
             patch("cortexclaw.docker_runner.GROUPS_DIR", groups_dir),
             patch("cortexclaw.docker_runner.DATA_DIR", data_dir),
             patch("cortexclaw.docker_runner._HOST_CONNECTIONS_TOML", connections_toml),
+            patch("cortexclaw.docker_runner.DOCKER_CONNECTION", "my-snowflake-conn"),
         ):
-            wrapper = create_docker_wrapper(group)
+            wrapper = create_docker_wrapper(group, connection_name="my-snowflake-conn")
         content = wrapper.read_text()
         assert "docker run" in content
         assert 'cortex "$@"' in content

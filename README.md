@@ -45,6 +45,7 @@ cortexclaw/
 ├── agent_runner.py       # Bridges the orchestrator to Cortex Code SDK
 ├── docker_runner.py      # Docker isolation: credential extraction, wrapper generation
 ├── docker_utils.py       # Docker health checks, image management, cleanup
+├── groups_config.py      # Static group loader from TOML config
 ├── group_queue.py        # Per-group concurrency control with global limit + retry
 ├── router.py             # XML message formatting + outbound routing
 ├── task_scheduler.py     # Cron/interval/one-shot task scheduling
@@ -131,7 +132,8 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, then run the same command
 | `DOCKER_ENABLED` | `true` | Enable Docker container isolation for agent runs |
 | `DOCKER_IMAGE` | `cortexclaw-agent:latest` | Docker image used for agent containers |
 | `DOCKER_RUNTIME` | `docker` | Container runtime (`docker` or `podman`) |
-| `DOCKER_CONNECTION` | `my-snowflake-conn` | Snowflake connection name to extract for containers |
+| `DOCKER_CONNECTION` | *(empty)* | Snowflake connection name to extract for containers |
+| `GROUPS_CONFIG` | `groups.toml` | Path to static group configuration file |
 
 ## Architecture
 
@@ -186,6 +188,33 @@ DOCKER_ENABLED=false python -m cortexclaw
 
 Per-group overrides are also supported via `ContainerConfig.docker_enabled`.
 
+### Static group configuration
+
+Pre-define multiple groups in a `groups.toml` file so they auto-register at startup — no Slack or IPC required.
+
+```toml
+[sales]
+name = "Sales Team"
+folder = "sales"
+trigger = "@sales"
+
+[eng]
+name = "Engineering"
+folder = "eng"
+trigger = "@eng"
+image = "cortexclaw-agent-eng:latest"    # per-group Docker image override
+
+[support]
+name = "Support"
+folder = "support"
+trigger = "@support"
+timeout = 600000                         # 10 minutes (ms)
+```
+
+Each section key becomes the JID `static:<key>`. Required fields: `name`, `folder`, `trigger`. Optional fields map to `ContainerConfig`: `image`, `timeout`, `docker_enabled`, `extra_env` (inline table), `additional_mounts` (array of strings). You can also set `requires_trigger` and `is_main`.
+
+Copy `groups.toml.example` to `groups.toml` and uncomment the groups you want. Set `GROUPS_CONFIG` to use a different path.
+
 ## Development
 
 ### Setup
@@ -228,6 +257,16 @@ Pull requests run lint + tests automatically via GitHub Actions (`.github/workfl
 Merges to `main` auto-bump the patch version and create a git tag (`.github/workflows/bump-version.yml`).
 
 ## Releases
+
+### v0.0.4 — Static group configuration
+
+Pre-define multiple groups in a TOML config file for automatic registration at startup:
+
+- New `groups.toml` config file format with per-group name, folder, trigger, and optional Docker overrides
+- Static groups auto-register at orchestrator startup (JID format: `static:<key>`)
+- Groups already registered (from DB/Slack/IPC) are not overwritten
+- `GROUPS_CONFIG` env var to customize the config file path
+- Example config: `groups.toml.example`
 
 ### v0.0.3 — Docker container isolation
 

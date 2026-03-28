@@ -217,6 +217,13 @@ def build_docker_args(
             ]
         )
 
+    # Cortex CLI data directory (writable) — the CLI writes session and
+    # conversation data under ~/.snowflake/cortex/.  Because we bind-mount
+    # connections.toml into ~/.snowflake/, Docker makes that directory
+    # effectively read-only for new entries.  A tmpfs gives the CLI a
+    # writable area without persisting anything (Docker mode is stateless).
+    args.extend(["--tmpfs", f"{_CONTAINER_HOME}/.snowflake/cortex:rw,exec,size=64m"])
+
     # Main groups get project root read-only
     if group.is_main:
         project_root = Path(__file__).resolve().parent.parent

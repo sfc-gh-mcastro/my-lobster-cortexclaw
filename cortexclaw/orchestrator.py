@@ -21,6 +21,7 @@ from .config import (
     DOCKER_ENABLED,
     DOCKER_IMAGE,
     DOCKER_RUNTIME,
+    GROUPS_CONFIG,
     GROUPS_DIR,
     POLL_INTERVAL,
     STORE_DIR,
@@ -296,6 +297,14 @@ async def main() -> None:
     # Initialize database
     await db.init_database()
     await _load_state()
+
+    # Load static groups from config file
+    from .groups_config import load_groups_config
+
+    static_groups = load_groups_config(GROUPS_CONFIG)
+    for jid, group in static_groups.items():
+        if jid not in _registered_groups:
+            await _register_group(jid, group)
 
     # Set up GroupQueue
     _queue.set_process_messages_fn(_process_group_messages)

@@ -83,23 +83,33 @@ async def run_agent(
         full_prompt = f"<system-instructions>\n{instructions}\n</system-instructions>\n\n{prompt}"
 
     # Resolve Docker vs host execution
-    if _should_use_docker(group):
+    use_docker = _should_use_docker(group)
+    if use_docker:
         from .docker_runner import create_docker_wrapper
 
         wrapper_path = create_docker_wrapper(group)
         effective_cli_path: str = str(wrapper_path)
-        effective_cwd: str = "/workspace/group"
+        # Use host-side group_dir as cwd — the SDK validates the path exists
+        # on the host. The container working directory is set via
+        # `docker run -w /workspace/group` inside the wrapper script.
+        effective_cwd: str = str(group_dir)
         logger.info("Using Docker isolation for group %s", group.folder)
     else:
         effective_cli_path = CORTEX_CLI_PATH
         effective_cwd = str(group_dir)
+
+    # Docker containers are stateless — session data lives on the host's
+    # Cortex CLI data dir which is not mounted into the container. Attempting
+    # to --resume a host session inside the container fails with
+    # "Session not found", so we skip resume in Docker mode.
+    effective_resume = None if use_docker else (resume_session_id or None)
 
     options = CortexCodeAgentOptions(
         cwd=effective_cwd,
         connection=CORTEX_CONNECTION or None,
         can_use_tool=_auto_approve,
         cli_path=effective_cli_path,
-        resume=resume_session_id or None,
+        resume=effective_resume,
     )
 
     collected_text: list[str] = []

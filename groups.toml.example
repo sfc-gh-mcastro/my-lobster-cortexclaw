@@ -1,0 +1,28 @@
+# CortexClaw Static Group Configuration
+#
+# Groups defined here are auto-registered at orchestrator startup.
+# Each section key becomes the JID: "static:<key>"
+#
+# Required fields: name, folder, trigger
+# Optional fields: image, timeout, docker_enabled, extra_env,
+#                  additional_mounts, requires_trigger, is_main
+#
+# Copy this file to groups.toml and uncomment the groups you want.
+
+# [sales]
+# name = "Sales Team"
+# folder = "sales"
+# trigger = "@sales"
+# requires_trigger = false
+
+# [eng]
+# name = "Engineering"
+# folder = "eng"
+# trigger = "@eng"
+# image = "cortexclaw-agent-eng:latest"    # per-group Docker image override
+
+# [support]
+# name = "Support"
+# folder = "support"
+# trigger = "@support"
+# timeout = 600000                         # 10 minutes (ms)

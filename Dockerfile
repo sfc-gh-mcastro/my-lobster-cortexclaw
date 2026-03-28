@@ -24,8 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create the coco user home directory structure.
 # The actual user UID/GID is overridden at runtime via --user flag,
 # but we need the directory tree to exist.
-RUN mkdir -p /home/coco/.snowflake /home/coco/.local/bin \
-    && chmod 777 /home/coco /home/coco/.snowflake /home/coco/.local /home/coco/.local/bin
+RUN mkdir -p /home/coco/.snowflake /home/coco/.snowflake/cortex/conversations \
+        /home/coco/.local/bin \
+    && chmod -R 777 /home/coco
 
 # Create workspace mount points
 RUN mkdir -p /workspace/group /workspace/ipc /workspace/project \
