@@ -31,10 +31,11 @@ RUN mkdir -p /home/coco/.snowflake /home/coco/.local/bin \
 RUN mkdir -p /workspace/group /workspace/ipc /workspace/project \
     && chmod 777 /workspace/group /workspace/ipc /workspace/project
 
-# Install Cortex Code CLI
+# Install Cortex Code CLI (beta channel — required by the Cortex Code Agent SDK)
 # SKIP_PODMAN=1 skips the interactive Podman/sandbox prompt.
 # NON_INTERACTIVE=1 skips all interactive prompts (path, etc.).
-ENV SKIP_PODMAN=1 NON_INTERACTIVE=1
+# CORTEX_CHANNEL=beta installs the beta build that the SDK expects.
+ENV SKIP_PODMAN=1 NON_INTERACTIVE=1 CORTEX_CHANNEL=beta
 RUN HOME=/home/coco curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | HOME=/home/coco sh \
     && chmod +x /home/coco/.local/bin/cortex
 
