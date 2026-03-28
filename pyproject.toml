@@ -1,6 +1,6 @@
 [project]
 name = "cortexclaw"
-version = "0.1.1"
+version = "0.1.2"
 description = "NanoClaw-inspired orchestrator on top of Cortex Code Agent SDK"
 requires-python = ">=3.10"
 dependencies = [
