@@ -23,7 +23,7 @@ Messaging Channels ──► SQLite ──► Polling Loop ──► Cortex Code
 |---|---|
 | TypeScript | Python (asyncio) |
 | Claude Agent SDK | Cortex Code Agent SDK |
-| Docker containers for isolation | Direct subprocess via SDK |
+| Docker containers for isolation | Docker containers via SDK `cli_path` wrapper |
 | WhatsApp, Telegram, Slack, Discord, Gmail | Slack + CLI (extensible via channel registry) |
 | `better-sqlite3` (sync) | `aiosqlite` (async) |
 | `cron-parser` | `croniter` |
@@ -43,6 +43,8 @@ cortexclaw/
 │   ├── slack.py          # Slack channel (slack_bolt async)
 │   └── cli.py            # Interactive CLI channel (stdin/stdout)
 ├── agent_runner.py       # Bridges the orchestrator to Cortex Code SDK
+├── docker_runner.py      # Docker isolation: credential extraction, wrapper generation
+├── docker_utils.py       # Docker health checks, image management, cleanup
 ├── group_queue.py        # Per-group concurrency control with global limit + retry
 ├── router.py             # XML message formatting + outbound routing
 ├── task_scheduler.py     # Cron/interval/one-shot task scheduling
@@ -55,6 +57,7 @@ cortexclaw/
 - Python 3.10+
 - [Cortex Code CLI](https://docs.snowflake.com/en/user-guide/cortex-code) (`cortex`) installed and authenticated
 - Cortex Code Agent SDK (`cortex_code_agent_sdk` Python package)
+- Docker (or Podman) — required when `DOCKER_ENABLED=true` (the default)
 
 ## Setup
 
@@ -125,6 +128,10 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, then run the same command
 | `SLACK_BOT_TOKEN` | *(empty)* | Slack bot token (skips Slack if not set) |
 | `SLACK_APP_TOKEN` | *(empty)* | Slack app-level token for Socket Mode |
 | `TZ` | system default | IANA timezone for scheduling and message formatting |
+| `DOCKER_ENABLED` | `true` | Enable Docker container isolation for agent runs |
+| `DOCKER_IMAGE` | `cortexclaw-agent:latest` | Docker image used for agent containers |
+| `DOCKER_RUNTIME` | `docker` | Container runtime (`docker` or `podman`) |
+| `DOCKER_CONNECTION` | `my-snowflake-conn` | Snowflake connection name to extract for containers |
 
 ## Architecture
 
@@ -152,6 +159,32 @@ Agents can communicate back to the orchestrator by writing JSON files to `data/i
 ### Per-group instructions
 
 Place a `CLAUDE.md` file in `groups/{folder}/` to give the agent custom instructions for that group. The agent runner prepends it to every prompt.
+
+### Docker isolation
+
+Agent runs are isolated inside Docker containers by default (`DOCKER_ENABLED=true`). This provides:
+
+- **Credential isolation** — Only the configured Snowflake connection (`DOCKER_CONNECTION`) is extracted from `~/.snowflake/connections.toml` and mounted read-only. Other connections (which may contain cleartext passwords) are never exposed to the container.
+- **Filesystem isolation** — The agent only sees its group working directory (read-write), IPC directory (read-write), and optionally the project root (read-only for main groups).
+- **JWT key isolation** — If the connection uses `SNOWFLAKE_JWT` auth, only the specific key file is mounted read-only at a container path.
+
+**How it works:** The SDK's `CortexCodeAgentOptions.cli_path` accepts any executable. CortexClaw generates a shell wrapper script per group that translates `cortex <args>` into `docker run <volumes> <env> <image> cortex <args>`. This means zero SDK modifications — the transport layer just runs a different binary.
+
+```
+Host                          Container (/home/coco)
+~/.snowflake/connections.toml  →  .snowflake/connections.toml (single connection, RO)
+~/.ssh/key.p8                  →  .snowflake/key.p8 (RO)
+groups/{folder}/               →  /workspace/group (RW)
+data/ipc/{folder}/             →  /workspace/ipc (RW)
+```
+
+To disable Docker and run agents directly on the host:
+
+```bash
+DOCKER_ENABLED=false python -m cortexclaw
+```
+
+Per-group overrides are also supported via `ContainerConfig.docker_enabled`.
 
 ## Development
 
@@ -195,6 +228,28 @@ Pull requests run lint + tests automatically via GitHub Actions (`.github/workfl
 Merges to `main` auto-bump the patch version and create a git tag (`.github/workflows/bump-version.yml`).
 
 ## Releases
+
+### v0.0.3 — Docker container isolation
+
+Agent runs are now isolated inside Docker containers by default:
+
+- Docker isolation via SDK `cli_path` wrapper — zero SDK changes required
+- Selective credential mounting — only the configured connection is exposed, not the full `~/.snowflake/` directory
+- JWT key file isolation with automatic path rewriting for container paths
+- Per-group Docker enable/disable override via `ContainerConfig`
+- Docker health checks at startup (daemon availability, image existence)
+- Stale container cleanup utility
+- New config vars: `DOCKER_ENABLED`, `DOCKER_IMAGE`, `DOCKER_RUNTIME`, `DOCKER_CONNECTION`
+
+### v0.0.2 — CI/CD and test suite
+
+Added development infrastructure:
+
+- 90+ tests with pytest, pytest-asyncio, pytest-cov
+- Ruff linting and formatting
+- GitHub Actions CI (lint + test across Python 3.10/3.11/3.12)
+- Auto patch version bump on main merge
+- PR template
 
 ### v0.0.1 — First working version
 

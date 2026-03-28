@@ -22,6 +22,9 @@ class ContainerConfig:
 
     timeout: int = 300_000  # ms, default 5 min
     extra_env: dict[str, str] = field(default_factory=dict)
+    docker_enabled: Optional[bool] = None  # None = use global DOCKER_ENABLED default
+    image: Optional[str] = None  # None = use global DOCKER_IMAGE default
+    additional_mounts: list[str] = field(default_factory=list)  # "host:container:mode"
 
 
 # ---------------------------------------------------------------------------

@@ -18,6 +18,9 @@ from .channels.registry import get_channel_factory, get_registered_channel_names
 from .config import (
     ASSISTANT_NAME,
     DATA_DIR,
+    DOCKER_ENABLED,
+    DOCKER_IMAGE,
+    DOCKER_RUNTIME,
     GROUPS_DIR,
     POLL_INTERVAL,
     STORE_DIR,
@@ -277,6 +280,18 @@ async def main() -> None:
     STORE_DIR.mkdir(parents=True, exist_ok=True)
     GROUPS_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Verify Docker environment if enabled
+    if DOCKER_ENABLED:
+        from .docker_utils import check_docker_available, ensure_image_exists
+
+        try:
+            await check_docker_available(DOCKER_RUNTIME)
+            await ensure_image_exists(DOCKER_IMAGE, DOCKER_RUNTIME)
+        except RuntimeError as e:
+            logger.error("Docker check failed: %s", e)
+            logger.error("Set DOCKER_ENABLED=false to run without Docker isolation")
+            return
 
     # Initialize database
     await db.init_database()

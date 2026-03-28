@@ -19,7 +19,7 @@ from cortex_code_agent_sdk import (
     query,
 )
 
-from .config import CORTEX_CLI_PATH, CORTEX_CONNECTION, GROUPS_DIR
+from .config import CORTEX_CLI_PATH, CORTEX_CONNECTION, DOCKER_ENABLED, GROUPS_DIR
 from .types import AgentOutput, RegisteredGroup
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,13 @@ async def _auto_approve(
 # ---------------------------------------------------------------------------
 
 OnAgentOutput = Callable[[AgentOutput], Coroutine[None, None, None]]
+
+
+def _should_use_docker(group: RegisteredGroup) -> bool:
+    """Determine whether this group should run inside Docker."""
+    if group.container_config and group.container_config.docker_enabled is not None:
+        return group.container_config.docker_enabled
+    return DOCKER_ENABLED
 
 
 async def run_agent(
@@ -75,11 +82,23 @@ async def run_agent(
         instructions = claude_md.read_text()
         full_prompt = f"<system-instructions>\n{instructions}\n</system-instructions>\n\n{prompt}"
 
+    # Resolve Docker vs host execution
+    if _should_use_docker(group):
+        from .docker_runner import create_docker_wrapper
+
+        wrapper_path = create_docker_wrapper(group)
+        effective_cli_path: str = str(wrapper_path)
+        effective_cwd: str = "/workspace/group"
+        logger.info("Using Docker isolation for group %s", group.folder)
+    else:
+        effective_cli_path = CORTEX_CLI_PATH
+        effective_cwd = str(group_dir)
+
     options = CortexCodeAgentOptions(
-        cwd=str(group_dir),
+        cwd=effective_cwd,
         connection=CORTEX_CONNECTION or None,
         can_use_tool=_auto_approve,
-        cli_path=CORTEX_CLI_PATH,
+        cli_path=effective_cli_path,
         resume=resume_session_id or None,
     )
 

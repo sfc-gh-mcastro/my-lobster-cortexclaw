@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from cortexclaw.types import RegisteredGroup
+from cortexclaw.types import ContainerConfig, RegisteredGroup
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -79,6 +79,7 @@ class TestRunAgent:
             patch("cortexclaw.agent_runner.GROUPS_DIR", groups_dir),
             patch("cortexclaw.agent_runner.CORTEX_CONNECTION", "test-conn"),
             patch("cortexclaw.agent_runner.CORTEX_CLI_PATH", "cortex"),
+            patch("cortexclaw.agent_runner.DOCKER_ENABLED", False),
             patch("cortexclaw.agent_runner.query", fake_query),
             patch("cortexclaw.agent_runner.AssistantMessage", _FakeAssistantMessage),
             patch("cortexclaw.agent_runner.ResultMessage", _FakeResultMessage),
@@ -129,6 +130,7 @@ class TestRunAgent:
             patch("cortexclaw.agent_runner.GROUPS_DIR", groups_dir),
             patch("cortexclaw.agent_runner.CORTEX_CONNECTION", "test-conn"),
             patch("cortexclaw.agent_runner.CORTEX_CLI_PATH", "cortex"),
+            patch("cortexclaw.agent_runner.DOCKER_ENABLED", False),
             patch("cortexclaw.agent_runner.query", capturing_query),
             patch("cortexclaw.agent_runner.AssistantMessage", _FakeAssistantMessage),
             patch("cortexclaw.agent_runner.ResultMessage", _FakeResultMessage),
@@ -165,6 +167,7 @@ class TestRunAgent:
             patch("cortexclaw.agent_runner.GROUPS_DIR", groups_dir),
             patch("cortexclaw.agent_runner.CORTEX_CONNECTION", "test-conn"),
             patch("cortexclaw.agent_runner.CORTEX_CLI_PATH", "cortex"),
+            patch("cortexclaw.agent_runner.DOCKER_ENABLED", False),
             patch("cortexclaw.agent_runner.query", capturing_query),
             patch("cortexclaw.agent_runner.AssistantMessage", _FakeAssistantMessage),
             patch("cortexclaw.agent_runner.ResultMessage", _FakeResultMessage),
@@ -178,3 +181,126 @@ class TestRunAgent:
         assert len(captured_prompts) == 1
         assert "You are a helpful bot." in captured_prompts[0]
         assert "hello" in captured_prompts[0]
+
+
+# ---------------------------------------------------------------------------
+# _should_use_docker
+# ---------------------------------------------------------------------------
+
+
+class TestShouldUseDocker:
+    def test_global_enabled_no_override(self):
+        from cortexclaw.agent_runner import _should_use_docker
+
+        group = _make_group()
+        with patch("cortexclaw.agent_runner.DOCKER_ENABLED", True):
+            assert _should_use_docker(group) is True
+
+    def test_global_disabled_no_override(self):
+        from cortexclaw.agent_runner import _should_use_docker
+
+        group = _make_group()
+        with patch("cortexclaw.agent_runner.DOCKER_ENABLED", False):
+            assert _should_use_docker(group) is False
+
+    def test_per_group_override_enabled(self):
+        from cortexclaw.agent_runner import _should_use_docker
+
+        cfg = ContainerConfig(docker_enabled=True)
+        group = _make_group(container_config=cfg)
+        with patch("cortexclaw.agent_runner.DOCKER_ENABLED", False):
+            assert _should_use_docker(group) is True
+
+    def test_per_group_override_disabled(self):
+        from cortexclaw.agent_runner import _should_use_docker
+
+        cfg = ContainerConfig(docker_enabled=False)
+        group = _make_group(container_config=cfg)
+        with patch("cortexclaw.agent_runner.DOCKER_ENABLED", True):
+            assert _should_use_docker(group) is False
+
+    def test_per_group_none_falls_through(self):
+        from cortexclaw.agent_runner import _should_use_docker
+
+        cfg = ContainerConfig(docker_enabled=None)
+        group = _make_group(container_config=cfg)
+        with patch("cortexclaw.agent_runner.DOCKER_ENABLED", True):
+            assert _should_use_docker(group) is True
+
+
+# ---------------------------------------------------------------------------
+# Docker mode integration
+# ---------------------------------------------------------------------------
+
+
+class TestRunAgentDockerMode:
+    async def test_docker_enabled_uses_wrapper_cli_path(self, tmp_path):
+        """When Docker is enabled, cli_path should point to the wrapper script."""
+        captured_options = {}
+
+        async def capturing_query(prompt, options, **kwargs):
+            captured_options["cli_path"] = options.cli_path
+            captured_options["cwd"] = options.cwd
+            async for msg in _fake_query_success():
+                yield msg
+
+        groups_dir = tmp_path / "groups"
+        groups_dir.mkdir()
+        (groups_dir / "test-group").mkdir()
+
+        fake_wrapper = tmp_path / "wrapper.sh"
+        fake_wrapper.write_text('#!/bin/sh\nexec docker run test cortex "$@"\n')
+
+        with (
+            patch("cortexclaw.agent_runner.GROUPS_DIR", groups_dir),
+            patch("cortexclaw.agent_runner.CORTEX_CONNECTION", "test-conn"),
+            patch("cortexclaw.agent_runner.CORTEX_CLI_PATH", "cortex"),
+            patch("cortexclaw.agent_runner.DOCKER_ENABLED", True),
+            patch(
+                "cortexclaw.docker_runner.create_docker_wrapper",
+                return_value=fake_wrapper,
+            ),
+            patch("cortexclaw.agent_runner.query", capturing_query),
+            patch("cortexclaw.agent_runner.AssistantMessage", _FakeAssistantMessage),
+            patch("cortexclaw.agent_runner.ResultMessage", _FakeResultMessage),
+            patch("cortexclaw.agent_runner.SystemMessage", _FakeSystemMessage),
+        ):
+            from cortexclaw.agent_runner import run_agent
+
+            group = _make_group()
+            await run_agent(group=group, prompt="test", chat_jid="jid1")
+
+        assert captured_options["cli_path"] == str(fake_wrapper)
+        assert captured_options["cwd"] == "/workspace/group"
+
+    async def test_docker_disabled_uses_host_cli_path(self, tmp_path):
+        """When Docker is disabled, cli_path should be the normal cortex binary."""
+        captured_options = {}
+
+        async def capturing_query(prompt, options, **kwargs):
+            captured_options["cli_path"] = options.cli_path
+            captured_options["cwd"] = options.cwd
+            async for msg in _fake_query_success():
+                yield msg
+
+        groups_dir = tmp_path / "groups"
+        groups_dir.mkdir()
+
+        with (
+            patch("cortexclaw.agent_runner.GROUPS_DIR", groups_dir),
+            patch("cortexclaw.agent_runner.CORTEX_CONNECTION", "test-conn"),
+            patch("cortexclaw.agent_runner.CORTEX_CLI_PATH", "/usr/bin/cortex"),
+            patch("cortexclaw.agent_runner.DOCKER_ENABLED", False),
+            patch("cortexclaw.agent_runner.query", capturing_query),
+            patch("cortexclaw.agent_runner.AssistantMessage", _FakeAssistantMessage),
+            patch("cortexclaw.agent_runner.ResultMessage", _FakeResultMessage),
+            patch("cortexclaw.agent_runner.SystemMessage", _FakeSystemMessage),
+        ):
+            from cortexclaw.agent_runner import run_agent
+
+            group = _make_group()
+            await run_agent(group=group, prompt="test", chat_jid="jid1")
+
+        assert captured_options["cli_path"] == "/usr/bin/cortex"
+        group_dir = groups_dir / "test-group"
+        assert captured_options["cwd"] == str(group_dir)

@@ -48,6 +48,15 @@ CORTEX_CONNECTION: str = os.getenv("CORTEX_CONNECTION", "")
 CORTEX_CLI_PATH: str = os.getenv("CORTEX_CLI_PATH", "cortex")
 
 # ---------------------------------------------------------------------------
+# Docker isolation (default: enabled)
+# ---------------------------------------------------------------------------
+
+DOCKER_ENABLED: bool = os.getenv("DOCKER_ENABLED", "true").lower() in ("true", "1", "yes")
+DOCKER_IMAGE: str = os.getenv("DOCKER_IMAGE", "cortexclaw-agent:latest")
+DOCKER_RUNTIME: str = os.getenv("DOCKER_RUNTIME", "docker")
+DOCKER_CONNECTION: str = os.getenv("DOCKER_CONNECTION", "my-snowflake-conn")
+
+# ---------------------------------------------------------------------------
 # Channel credentials
 # ---------------------------------------------------------------------------
 
