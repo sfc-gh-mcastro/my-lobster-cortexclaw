@@ -258,6 +258,17 @@ Merges to `main` auto-bump the patch version and create a git tag (`.github/work
 
 ## Releases
 
+### v0.1.4 — Static groups, architecture docs, Docker fixes, credential scrub
+
+- **Static group configuration**: Pre-define multiple groups in `groups.toml` that auto-register at startup — no Slack or IPC required
+- **Architecture documentation**: `ARCHITECTURE.md` with 9 Mermaid diagrams covering message flow, Docker isolation, group registration, concurrency control, IPC, scheduling, and data model
+- **Docker runtime fixes**: Use host-side cwd (SDK validates path on host), skip session resume in Docker mode (containers are stateless), add tmpfs for Cortex CLI data directory
+- **Credential scrub**: Removed real Snowflake account/user/role/warehouse from test fixtures, config defaults, and git history via `git-filter-repo`
+- `DOCKER_CONNECTION` default changed to empty string (set in `.env` instead)
+- `GROUPS_CONFIG` env var to customize the config file path
+- Per-group `CLAUDE.md` instructions for customizing agent behavior
+- 17 new tests for groups_config (68 total passing)
+
 ### v0.0.4 — Static group configuration
 
 Pre-define multiple groups in a TOML config file for automatic registration at startup:
